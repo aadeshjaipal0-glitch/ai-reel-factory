@@ -1,0 +1,16 @@
+name: Reel Factory Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test runner
+        run: |
+          echo "REEL FACTORY RENDER WORKER ONLINE"
+          echo "GitHub Actions is working."
+          python --version
+          ffmpeg -version
