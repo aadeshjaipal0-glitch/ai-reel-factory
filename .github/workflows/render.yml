@@ -1,23 +1,35 @@
-name: Reel Factory Test
+name: Reel Factory Render
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  render:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install FFmpeg
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Test Python
+      - name: Render test reel
         run: |
-          echo "REEL FACTORY RENDER WORKER ONLINE"
-          python --version
+          python renderer/render.py
 
-      - name: Test FFmpeg
+      - name: Verify output
         run: |
-          ffmpeg -version
+          ls -lh final_reel.mp4
+          ffprobe -v error \
+            -show_entries stream=width,height,duration \
+            -of default=noprint_wrappers=1 \
+            final_reel.mp4
+
+      - name: Upload rendered reel
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-reel
+          path: final_reel.mp4
