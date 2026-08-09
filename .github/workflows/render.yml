@@ -8,9 +8,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Test runner
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Test Python
         run: |
           echo "REEL FACTORY RENDER WORKER ONLINE"
-          echo "GitHub Actions is working."
           python --version
+
+      - name: Test FFmpeg
+        run: |
           ffmpeg -version
