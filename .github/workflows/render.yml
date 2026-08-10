@@ -22,7 +22,7 @@ jobs:
 
       - name: Verify output
         run: |
-          ls -lh final_reel.mp4
+          ls -lh test_render.mp4
           ffprobe -v error \
             -show_entries stream=width,height,duration \
             -of default=noprint_wrappers=1 \
