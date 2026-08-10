@@ -1,16 +1,13 @@
 import subprocess
 from pathlib import Path
 
-OUTPUT = Path("final_reel.mp4")
+OUTPUT = Path("test_render.mp4")
 
 cmd = [
     "ffmpeg",
     "-y",
-
     "-f", "lavfi",
-    "-i",
-    "color=c=black:s=1080x1920:r=30:d=5",
-
+    "-i", "color=c=black:s=1080x1920:r=30:d=5",
     "-vf",
     (
         "drawtext="
@@ -22,11 +19,9 @@ cmd = [
         "y=(h-text_h)/2:"
         "enable='between(t,0,5)'"
     ),
-
     "-c:v", "libx264",
     "-preset", "veryfast",
     "-pix_fmt", "yuv420p",
-
     str(OUTPUT)
 ]
 
