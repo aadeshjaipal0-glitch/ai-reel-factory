@@ -16,6 +16,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
+      - name: Check Python
+        run: |
+          python --version
+          ffmpeg -version | head -n 1
+
       - name: Render test reel
         run: |
           python renderer/render.py
@@ -26,10 +31,11 @@ jobs:
           ffprobe -v error \
             -show_entries stream=width,height,duration \
             -of default=noprint_wrappers=1 \
-            final_reel.mp4
+            test_render.mp4
 
       - name: Upload rendered reel
         uses: actions/upload-artifact@v4
         with:
-          name: final-reel
-          path: final_reel.mp4
+          name: test-render
+          path: test_render.mp4
+          if-no-files-found: error
