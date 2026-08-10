@@ -27,7 +27,7 @@ jobs:
 
       - name: Verify output
         run: |
-          ls -lh test_render.mp4
+          ls -lh reel_01_test.mp4
           ffprobe -v error \
             -show_entries stream=width,height,duration \
             -of default=noprint_wrappers=1 \
@@ -37,5 +37,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-render
-          path: test_render.mp4
+          path: reel_01_test.mp4
           if-no-files-found: error
