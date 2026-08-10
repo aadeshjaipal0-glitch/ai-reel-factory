@@ -16,25 +16,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Check Python
-        run: |
-          python --version
-          ffmpeg -version | head -n 1
-
       - name: Render test reel
         run: |
           python renderer/render.py
 
-       - name: Verify output
-  run: |
-    ls -lh reel_01_test.mp4
-    ffprobe -v error \
-      -show_entries stream=width,height,duration \
-      -of default=noprint_wrappers=1 \
-      reel_01_test.mp4
+      - name: Verify output
+        run: |
+          ls -lh reel_01_test.mp4
+          ffprobe -v error \
+            -show_entries stream=width,height,duration \
+            -of default=noprint_wrappers=1 \
+            reel_01_test.mp4
 
-     - name: Upload rendered reel
-  uses: actions/upload-artifact@v4
-  with:
-    name: reel-01-test
-    path: reel_01_test.mp4
+      - name: Upload rendered reel
+        uses: actions/upload-artifact@v4
+        with:
+          name: reel-01-test
+          path: reel_01_test.mp4
