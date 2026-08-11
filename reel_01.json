@@ -1,0 +1,107 @@
+{
+  "project": "reel_01",
+  "aspect_ratio": "9:16",
+  "fps": 30,
+
+  "shots": [
+    {
+      "id": 1,
+      "duration": 1.3,
+      "type": "graphic",
+      "graphic": "hook",
+      "text": "AUTOMATE."
+    },
+
+    {
+      "id": 2,
+      "duration": 3.8,
+      "type": "presenter",
+      "asset": "assets/presenter/gen1.mp4"
+    },
+
+    {
+      "id": 3,
+      "duration": 3.5,
+      "type": "graphic",
+      "graphic": "workflow"
+    },
+
+    {
+      "id": 4,
+      "duration": 1.4,
+      "type": "graphic",
+      "graphic": "agent_pipeline"
+    },
+
+    {
+      "id": 5,
+      "duration": 2.0,
+      "type": "graphic",
+      "graphic": "timeline"
+    },
+
+    {
+      "id": 6,
+      "duration": 1.4,
+      "type": "graphic",
+      "graphic": "dashboard"
+    },
+
+    {
+      "id": 7,
+      "duration": 3.2,
+      "type": "presenter",
+      "asset": "assets/presenter/gen2.mp4"
+    },
+
+    {
+      "id": 8,
+      "duration": 1.3,
+      "type": "graphic",
+      "graphic": "agent_pipeline"
+    },
+
+    {
+      "id": 9,
+      "duration": 1.4,
+      "type": "graphic",
+      "graphic": "timeline"
+    },
+
+    {
+      "id": 10,
+      "duration": 3.5,
+      "type": "graphic",
+      "graphic": "timeline"
+    },
+
+    {
+      "id": 11,
+      "duration": 1.4,
+      "type": "graphic",
+      "graphic": "dashboard"
+    },
+
+    {
+      "id": 12,
+      "duration": 3.2,
+      "type": "presenter",
+      "asset": "assets/presenter/gen3.mp4"
+    },
+
+    {
+      "id": 13,
+      "duration": 1.6,
+      "type": "graphic",
+      "graphic": "chapter",
+      "title": "PUBLISH"
+    },
+
+    {
+      "id": 14,
+      "duration": 4.0,
+      "type": "presenter",
+      "asset": "assets/presenter/gen3.mp4"
+    }
+  ]
+}
