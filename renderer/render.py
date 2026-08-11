@@ -7,8 +7,12 @@ TIMELINE = ROOT / "timeline" / "reel_01.json"
 OUTPUT = ROOT / "reel_01_test.mp4"
 WORK = ROOT / "render_work"
 
-WORK.mkdir(exist_ok=True)
+WORK.mkdir(parents=True, exist_ok=True)
 
+
+# =========================================================
+# Utility functions
+# =========================================================
 
 def run(cmd):
     print("RUNNING:", " ".join(map(str, cmd)))
@@ -35,23 +39,28 @@ def get_duration(file):
     return float(result.stdout.strip())
 
 
+# =========================================================
+# Presenter asset resolver
+# =========================================================
+
 def find_presenter_asset(asset_path):
     """
-    Resolves presenter files even if filenames contain spaces.
+    Finds presenter videos even if the actual filename contains
+    spaces.
 
-    Example:
-    gen1.mp4  -> gen 1.mp4
-    gen2.mp4  -> gen 2.mp4
-    gen3.mp4  -> gen 3.mp4
+    Examples:
+        gen1.mp4 -> gen 1.mp4
+        gen2.mp4 -> gen 2.mp4
+        gen3.mp4 -> gen 3.mp4
     """
 
     requested = ROOT / asset_path
 
-    # Exact path exists
+    # 1. Exact path
     if requested.exists():
         return requested
 
-    # Try replacing gen1/gen2/gen3 with gen 1/gen 2/gen 3
+    # 2. Alternative filenames with spaces
     filename = requested.name
 
     replacements = {
@@ -67,13 +76,25 @@ def find_presenter_asset(asset_path):
         if alternative.exists():
             return alternative
 
+    # 3. Case-insensitive fallback
+    if requested.parent.exists():
+        target = filename.lower()
+
+        for file in requested.parent.iterdir():
+            if file.is_file() and file.name.lower() == target:
+                return file
+
     return None
 
 
+# =========================================================
+# Placeholder renderer
+# =========================================================
+
 def render_placeholder(output, duration, shot_id):
     """
-    Temporary placeholder for shots whose real visual asset
-    has not been generated yet.
+    Temporary placeholder for graphics that have not yet
+    been replaced by the real motion-graphics renderer.
     """
 
     run(
@@ -83,13 +104,18 @@ def render_placeholder(output, duration, shot_id):
             "-f",
             "lavfi",
             "-i",
-            f"color=c=black:s=1080x1920:r=30:d={duration}",
+            (
+                f"color=c=black:"
+                f"s=1080x1920:"
+                f"r=30:"
+                f"d={duration}"
+            ),
             "-vf",
             (
                 "drawtext="
                 "fontfile=/usr/share/fonts/truetype/dejavu/"
                 "DejaVuSans-Bold.ttf:"
-                f"text='SHOT {shot_id} — ASSET PENDING':"
+                f"text='SHOT {shot_id} - ASSET PENDING':"
                 "fontcolor=white:"
                 "fontsize=70:"
                 "x=(w-text_w)/2:"
@@ -107,31 +133,33 @@ def render_placeholder(output, duration, shot_id):
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Load timeline
-# ---------------------------------------------------------
+# =========================================================
 
 if not TIMELINE.exists():
     raise FileNotFoundError(
         f"Timeline not found: {TIMELINE}"
     )
 
-
 with open(TIMELINE, "r", encoding="utf-8") as f:
     timeline = json.load(f)
 
+shots = timeline.get("shots", [])
 
-shots = timeline["shots"]
+if not shots:
+    raise RuntimeError(
+        "Timeline contains no shots."
+    )
 
 print(f"Loaded {len(shots)} shots")
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Render individual shots
-# ---------------------------------------------------------
+# =========================================================
 
 rendered_shots = []
-
 
 for shot in shots:
 
@@ -151,7 +179,7 @@ for shot in shots:
     print("=" * 60)
 
     # -----------------------------------------------------
-    # PRESENTER SHOT
+    # PRESENTER
     # -----------------------------------------------------
 
     if shot_type == "presenter":
@@ -166,7 +194,7 @@ for shot in shots:
             render_placeholder(
                 output,
                 duration,
-                shot_id
+                shot_id,
             )
 
         else:
@@ -181,19 +209,35 @@ for shot in shots:
                 )
 
                 print(
-                    "Creating temporary placeholder so "
-                    "the test render can continue."
+                    "Available presenter assets:"
+                )
+
+                presenter_dir = ROOT / "assets" / "presenter"
+
+                if presenter_dir.exists():
+
+                    for file in sorted(presenter_dir.iterdir()):
+                        if file.is_file():
+                            print(
+                                f"  - {file}"
+                            )
+
+                print(
+                    "Creating temporary placeholder "
+                    "so rendering can continue."
                 )
 
                 render_placeholder(
                     output,
                     duration,
-                    shot_id
+                    shot_id,
                 )
 
             else:
 
-                print(f"Using presenter asset: {source}")
+                print(
+                    f"Using presenter asset: {source}"
+                )
 
                 run(
                     [
@@ -224,7 +268,7 @@ for shot in shots:
                 )
 
     # -----------------------------------------------------
-    # NON-PRESENTER SHOT
+    # GRAPHIC / OTHER
     # -----------------------------------------------------
 
     else:
@@ -232,19 +276,39 @@ for shot in shots:
         render_placeholder(
             output,
             duration,
-            shot_id
+            shot_id,
+        )
+
+    # -----------------------------------------------------
+    # Verify individual shot
+    # -----------------------------------------------------
+
+    if not output.exists():
+        raise RuntimeError(
+            f"Shot {shot_id} failed to render: {output}"
+        )
+
+    if output.stat().st_size == 0:
+        raise RuntimeError(
+            f"Shot {shot_id} is empty: {output}"
         )
 
     rendered_shots.append(output)
 
+    print(
+        f"SHOT {shot_id} COMPLETE: "
+        f"{output} "
+        f"({output.stat().st_size / 1024:.1f} KB)"
+    )
 
-# ---------------------------------------------------------
-# Verify rendered shots
-# ---------------------------------------------------------
+
+# =========================================================
+# Verify all rendered shots
+# =========================================================
 
 print()
 print("=" * 60)
-print("VERIFYING SHOTS")
+print("VERIFYING RENDERED SHOTS")
 print("=" * 60)
 
 valid_shots = []
@@ -255,7 +319,7 @@ for clip in rendered_shots:
 
         print(
             f"OK: {clip} "
-            f"({clip.stat().st_size} bytes)"
+            f"({clip.stat().st_size / 1024:.1f} KB)"
         )
 
         valid_shots.append(clip)
@@ -267,33 +331,40 @@ for clip in rendered_shots:
         )
 
 
-if not valid_shots:
+if len(valid_shots) != len(shots):
     raise RuntimeError(
-        "No valid shots were rendered."
+        f"Only {len(valid_shots)} of {len(shots)} shots "
+        f"were rendered successfully."
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Create concat file
-# ---------------------------------------------------------
+# =========================================================
 
 concat_file = WORK / "concat.txt"
 
 with open(concat_file, "w", encoding="utf-8") as f:
 
     for clip in valid_shots:
+
+        # FFmpeg concat demuxer requires escaped single quotes
+        # if paths contain them.
+        clip_path = str(clip.resolve()).replace("'", "'\\''")
+
         f.write(
-            f"file '{clip.resolve()}'\n"
+            f"file '{clip_path}'\n"
         )
 
-
 print()
-print(f"Concat file created: {concat_file}")
+print(
+    f"Concat file created: {concat_file}"
+)
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Final assembly
-# ---------------------------------------------------------
+# =========================================================
 
 run(
     [
@@ -311,29 +382,45 @@ run(
         "veryfast",
         "-pix_fmt",
         "yuv420p",
+        "-an",
         str(OUTPUT),
     ]
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # Final verification
-# ---------------------------------------------------------
+# =========================================================
 
 if not OUTPUT.exists():
     raise RuntimeError(
         "Final render was not created."
     )
 
+if OUTPUT.stat().st_size == 0:
+    raise RuntimeError(
+        "Final render exists but is empty."
+    )
 
 duration = get_duration(OUTPUT)
 
+
+# =========================================================
+# Final report
+# =========================================================
 
 print()
 print("=" * 60)
 print("REEL FACTORY TEST RENDER COMPLETE")
 print("=" * 60)
-print(f"Output: {OUTPUT}")
-print(f"File size: {OUTPUT.stat().st_size / 1024:.1f} KB")
-print(f"Duration: {duration:.2f}s")
+print(f"Output:    {OUTPUT}")
+print(
+    f"File size: {OUTPUT.stat().st_size / 1024:.1f} KB"
+)
+print(
+    f"Duration:  {duration:.2f}s"
+)
+print(
+    f"Shots:     {len(valid_shots)}/{len(shots)}"
+)
 print("=" * 60)
