@@ -1,6 +1,12 @@
 import subprocess
 from pathlib import Path
 
+
+# =========================================================
+# GLOBAL SETTINGS
+# =========================================================
+
+ROOT = Path(".")
 W = 1080
 H = 1920
 FPS = 30
@@ -8,446 +14,642 @@ FPS = 30
 FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
+# Style Bible palette
+BLACK = "0x121212"
+DARK = "0x181818"
+CREAM = "0xF5F1EA"
+WHITE = "0xFFFFFF"
+MUTED = "0xB8B4AC"
+
+# Single accent color
+ACCENT = "0xB96B55"
+
+
+# =========================================================
+# FFMPEG RUNNER
+# =========================================================
 
 def run(cmd):
-    print("\nGRAPHICS:", " ".join(str(x) for x in cmd))
+    print("\nRUNNING:")
+    print(" ".join(str(x) for x in cmd))
+
     subprocess.run(cmd, check=True)
 
 
-def esc(text):
-    return (
-        str(text)
-        .replace("\\", "\\\\")
-        .replace(":", "\\:")
-        .replace("'", "\\'")
-        .replace(",", "\\,")
+# =========================================================
+# TEXT ESCAPING
+# =========================================================
+
+def escape_text(text):
+    """
+    Makes text safer for FFmpeg drawtext.
+    """
+
+    text = str(text)
+
+    text = text.replace("\\", r"\\")
+    text = text.replace(":", r"\:")
+    text = text.replace("'", r"\'")
+    text = text.replace(",", r"\,")
+
+    return text
+
+
+# =========================================================
+# BASIC COLOR BACKGROUND
+# =========================================================
+
+def render_background(output, duration, color=BLACK):
+
+    run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={color}:s={W}x{H}:r={FPS}:d={duration}",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
-def base_input(duration, background="0x080808"):
-    return [
-        "ffmpeg",
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        f"color=c={background}:s={W}x{H}:r={FPS}:d={duration}",
-    ]
-
-
-def encode(output):
-    return [
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-pix_fmt", "yuv420p",
-        "-an",
-        str(output),
-    ]
-
-
 # =========================================================
-# 1. TITLE / HOOK
+# SIMPLE PLACEHOLDER
 # =========================================================
 
-def render_hook(output, duration):
-    text = esc("AI IS CHANGING EVERYTHING")
+def render_placeholder(output, duration, shot_id):
+
+    text = escape_text(f"SHOT {shot_id}")
 
     vf = (
-        f"drawtext=fontfile={FONT_BOLD}:"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
         f"text='{text}':"
-        "fontcolor=white:"
-        "fontsize=82:"
-        "x=(w-text_w)/2:"
-        "y=(h-text_h)/2:"
-        "alpha='if(lt(t,0.25),t/0.25,1)':"
-        "enable='between(t,0,1.3)'"
+        f"fontcolor={WHITE}:"
+        f"fontsize=70:"
+        f"x=(w-text_w)/2:"
+        f"y=(h-text_h)/2"
     )
 
     run(
-        base_input(duration, "0x050505")
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# 2. WORKFLOW GRAPHIC
+# HOOK CARD
+# =========================================================
+
+def render_hook(output, duration, text="AUTOMATE."):
+
+    text = escape_text(text)
+
+    vf = (
+        f"drawbox="
+        f"x=90:y=650:w=900:h=620:"
+        f"color={DARK}:t=fill,"
+        f"drawbox="
+        f"x=90:y=650:w=12:h=620:"
+        f"color={ACCENT}:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='{text}':"
+        f"fontcolor={WHITE}:"
+        f"fontsize=108:"
+        f"x=(w-text_w)/2:"
+        f"y=890"
+    )
+
+    run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
+    )
+
+
+# =========================================================
+# WORKFLOW GRAPHIC
+# research → script → edit → publish
 # =========================================================
 
 def render_workflow(output, duration):
+
+    # Four nodes across the center.
+    # Icons are represented with simple letters so the graphic
+    # remains completely self-contained and FFmpeg-compatible.
+
     vf = (
-        "drawbox=x=90:y=500:w=900:h=820:"
-        "color=0x111111:t=fill,"
-        "drawbox=x=130:y=560:w=220:h=180:"
-        "color=0x1C1C1C:t=fill,"
-        "drawbox=x=430:y=560:w=220:h=180:"
-        "color=0x1C1C1C:t=fill,"
-        "drawbox=x=730:y=560:w=220:h=180:"
-        "color=0x1C1C1C:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='RESEARCH':"
-        "fontcolor=white:"
-        "fontsize=42:"
-        "x=155:y=625,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CREATE':"
-        "fontcolor=white:"
-        "fontsize=42:"
-        "x=475:y=625,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='PUBLISH':"
-        "fontcolor=white:"
-        "fontsize=42:"
-        "x=765:y=625,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='AI WORKFLOW':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=(w-text_w)/2:"
-        "y=430,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='AUTOMATED':"
-        "fontcolor=white:"
-        "fontsize=70:"
-        "x=(w-text_w)/2:"
-        "y=1050"
+        # cream card
+        f"drawbox="
+        f"x=70:y=570:w=940:h=760:"
+        f"color={CREAM}:t=fill,"
+
+        # accent top line
+        f"drawbox="
+        f"x=70:y=570:w=940:h=10:"
+        f"color={ACCENT}:t=fill,"
+
+        # connecting arrows / lines
+        f"drawbox=x=270:y=940:w=170:h=8:color={ACCENT}:t=fill,"
+        f"drawbox=x=510:y=940:w=170:h=8:color={ACCENT}:t=fill,"
+        f"drawbox=x=750:y=940:w=170:h=8:color={ACCENT}:t=fill,"
+
+        # node 1
+        f"drawbox="
+        f"x=150:y=830:w=120:h=220:"
+        f"color=0xE8E0D5:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='R':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=64:"
+        f"x=183:"
+        f"y=900,"
+
+        # node 2
+        f"drawbox="
+        f"x=390:y=830:w=120:h=220:"
+        f"color=0xE8E0D5:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='S':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=64:"
+        f"x=425:"
+        f"y=900,"
+
+        # node 3
+        f"drawbox="
+        f"x=630:y=830:w=120:h=220:"
+        f"color=0xE8E0D5:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='E':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=64:"
+        f"x=665:"
+        f"y=900,"
+
+        # node 4
+        f"drawbox="
+        f"x=870:y=830:w=120:h=220:"
+        f"color=0xE8E0D5:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='P':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=64:"
+        f"x=905:"
+        f"y=900,"
+
+        # title
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='CONTENT WORKFLOW':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=58:"
+        f"x=(w-text_w)/2:"
+        f"y=680"
     )
 
     run(
-        base_input(duration, "0x080808")
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# 3. RESEARCH CARD
+# AGENT PIPELINE
 # =========================================================
 
-def render_research(output, duration):
+def render_agent_pipeline(output, duration):
+
     vf = (
-        "drawbox=x=150:y=550:w=780:h=650:"
-        "color=0x111111:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='01':"
-        "fontcolor=0x777777:"
-        "fontsize=42:"
-        "x=200:y=620,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='RESEARCH':"
-        "fontcolor=white:"
-        "fontsize=78:"
-        "x=200:y=730,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='AI finds the information':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=200:y=850,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='you need.':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=200:y=910"
+        f"drawbox="
+        f"x=80:y=500:w=920:h=900:"
+        f"color={CREAM}:t=fill,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='AI AGENT':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=70:"
+        f"x=(w-text_w)/2:"
+        f"y=600,"
+
+        # central agent
+        f"drawbox="
+        f"x=390:y=790:w=300:h=220:"
+        f"color={ACCENT}:t=fill,"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='AGENT':"
+        f"fontcolor={WHITE}:"
+        f"fontsize=62:"
+        f"x=(w-text_w)/2:"
+        f"y=865,"
+
+        # input/output blocks
+        f"drawbox=x=130:y=830:w=180:h=140:color=0xE8E0D5:t=fill,"
+        f"drawbox=x=770:y=830:w=180:h=140:color=0xE8E0D5:t=fill,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='INPUT':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=38:"
+        f"x=173:"
+        f"y=880,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='OUTPUT':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=38:"
+        f"x=795:"
+        f"y=880,"
+
+        # connections
+        f"drawbox=x=310:y=895:w=80:h=8:color={ACCENT}:t=fill,"
+        f"drawbox=x=690:y=895:w=80:h=8:color={ACCENT}:t=fill"
     )
 
     run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# 4. CREATE CARD
-# =========================================================
-
-def render_create(output, duration):
-    vf = (
-        "drawbox=x=150:y=550:w=780:h=650:"
-        "color=0x111111:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='02':"
-        "fontcolor=0x777777:"
-        "fontsize=42:"
-        "x=200:y=620,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CREATE':"
-        "fontcolor=white:"
-        "fontsize=78:"
-        "x=200:y=730,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='Scripts, visuals,':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=200:y=850,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='and content generated.':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=200:y=910"
-    )
-
-    run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
-    )
-
-
-# =========================================================
-# 5. PUBLISH CARD
-# =========================================================
-
-def render_publish(output, duration):
-    vf = (
-        "drawbox=x=150:y=550:w=780:h=650:"
-        "color=0x111111:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='03':"
-        "fontcolor=0x777777:"
-        "fontsize=42:"
-        "x=200:y=620,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='PUBLISH':"
-        "fontcolor=white:"
-        "fontsize=78:"
-        "x=200:y=730,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='Ready for the audience.':"
-        "fontcolor=0xBBBBBB:"
-        "fontsize=38:"
-        "x=200:y=870"
-    )
-
-    run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
-    )
-
-
-# =========================================================
-# 6. AUTOMATION CARD
-# =========================================================
-
-def render_automation(output, duration):
-    vf = (
-        "drawbox=x=120:y=520:w=840:h=820:"
-        "color=0x101010:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='AUTOMATION':"
-        "fontcolor=white:"
-        "fontsize=76:"
-        "x=(w-text_w)/2:"
-        "y=650,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='ONE WORKFLOW':"
-        "fontcolor=0xAAAAAA:"
-        "fontsize=42:"
-        "x=(w-text_w)/2:"
-        "y=800,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='MANY TASKS':"
-        "fontcolor=white:"
-        "fontsize=62:"
-        "x=(w-text_w)/2:"
-        "y=920"
-    )
-
-    run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
-    )
-
-
-# =========================================================
-# 7. CUTS
-# =========================================================
-
-def render_cuts(output, duration):
-    vf = (
-        "drawbox=x=180:y=600:w=720:h=500:"
-        "color=0x111111:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CUTS':"
-        "fontcolor=white:"
-        "fontsize=100:"
-        "x=(w-text_w)/2:"
-        "y=760"
-    )
-
-    run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
-    )
-
-
-# =========================================================
-# 8. CAPTIONS
-# =========================================================
-
-def render_captions(output, duration):
-    vf = (
-        "drawbox=x=120:y=560:w=840:h=650:"
-        "color=0x111111:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CAPTIONS':"
-        "fontcolor=white:"
-        "fontsize=78:"
-        "x=(w-text_w)/2:"
-        "y=720,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='GENERATED AUTOMATICALLY':"
-        "fontcolor=0xAAAAAA:"
-        "fontsize=36:"
-        "x=(w-text_w)/2:"
-        "y=850"
-    )
-
-    run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
-    )
-
-
-# =========================================================
-# 9. FULL AUTOMATION / TIMELINE
+# TIMELINE GRAPHIC
 # =========================================================
 
 def render_timeline(output, duration):
+
     vf = (
-        "drawbox=x=100:y=500:w=880:h=850:"
-        "color=0x101010:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CUTS + CAPTIONS + SCORES':"
-        "fontcolor=white:"
-        "fontsize=54:"
-        "x=(w-text_w)/2:"
-        "y=670,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='AUTOMATICALLY':"
-        "fontcolor=white:"
-        "fontsize=76:"
-        "x=(w-text_w)/2:"
-        "y=820,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='FROM ONE WORKFLOW':"
-        "fontcolor=0xAAAAAA:"
-        "fontsize=38:"
-        "x=(w-text_w)/2:"
-        "y=960"
+        f"drawbox="
+        f"x=70:y=600:w=940:h=700:"
+        f"color={CREAM}:t=fill,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='AUTOMATED TIMELINE':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=62:"
+        f"x=(w-text_w)/2:"
+        f"y=700,"
+
+        # timeline rail
+        f"drawbox="
+        f"x=140:y=980:w=800:h=10:"
+        f"color={MUTED}:t=fill,"
+
+        # clips
+        f"drawbox=x=150:y=900:w=150:h=150:color={ACCENT}:t=fill,"
+        f"drawbox=x=330:y=900:w=180:h=150:color=0xD7D0C5:t=fill,"
+        f"drawbox=x=540:y=900:w=150:h=150:color={ACCENT}:t=fill,"
+        f"drawbox=x=720:y=900:w=200:h=150:color=0xD7D0C5:t=fill,"
+
+        # playhead
+        f"drawbox="
+        f"x=600:y=850:w=6:h=240:"
+        f"color={BLACK}:t=fill"
     )
 
     run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# 10. DASHBOARD
+# DASHBOARD / ANALYTICS
 # =========================================================
 
 def render_dashboard(output, duration):
+
     vf = (
-        "drawbox=x=120:y=500:w=840:h=850:"
-        "color=0x101010:t=fill,"
-        "drawbox=x=190:y=850:w=170:h=250:"
-        "color=0x222222:t=fill,"
-        "drawbox=x=410:y=700:w=170:h=400:"
-        "color=0x222222:t=fill,"
-        "drawbox=x=630:y=590:w=170:h=510:"
-        "color=0x222222:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='OUTPUT':"
-        "fontcolor=white:"
-        "fontsize=70:"
-        "x=(w-text_w)/2:"
-        "y=570"
+        f"drawbox="
+        f"x=70:y=560:w=940:h=800:"
+        f"color={CREAM}:t=fill,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='AUTOMATION':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=64:"
+        f"x=140:"
+        f"y=660,"
+
+        # bars
+        f"drawbox=x=180:y=1120:w=110:h=120:color={MUTED}:t=fill,"
+        f"drawbox=x=340:y=1020:w=110:h=220:color={ACCENT}:t=fill,"
+        f"drawbox=x=500:y=900:w=110:h=340:color={MUTED}:t=fill,"
+        f"drawbox=x=660:y=780:w=110:h=460:color={ACCENT}:t=fill,"
+        f"drawbox=x=820:y=680:w=110:h=560:color={MUTED}:t=fill,"
     )
 
     run(
-        base_input(duration)
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# 11. FINAL PUNCH
+# TEXT CARD
 # =========================================================
 
-def render_final(output, duration):
+def render_text_card(
+    output,
+    duration,
+    text,
+    background=BLACK,
+    font_size=90,
+):
+
+    if background == "cream":
+        bg = CREAM
+        fg = BLACK
+    else:
+        bg = BLACK
+        fg = WHITE
+
+    text = escape_text(text)
+
     vf = (
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='AUTOMATE MORE.':"
-        "fontcolor=white:"
-        "fontsize=82:"
-        "x=(w-text_w)/2:"
-        "y=780,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='CREATE MORE.':"
-        "fontcolor=white:"
-        "fontsize=82:"
-        "x=(w-text_w)/2:"
-        "y=900"
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='{text}':"
+        f"fontcolor={fg}:"
+        f"fontsize={font_size}:"
+        f"x=(w-text_w)/2:"
+        f"y=(h-text_h)/2"
     )
 
     run(
-        base_input(duration, "0x050505")
-        + ["-vf", vf]
-        + encode(output)
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={bg}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
     )
 
 
 # =========================================================
-# MAIN DISPATCHER
+# CHAPTER MARKER
+# =========================================================
+
+def render_chapter(output, duration, title):
+
+    title = escape_text(title)
+
+    vf = (
+        f"drawbox="
+        f"x=90:y=720:w=900:h=480:"
+        f"color={CREAM}:t=fill,"
+
+        f"drawbox="
+        f"x=90:y=720:w=16:h=480:"
+        f"color={ACCENT}:t=fill,"
+
+        f"drawtext="
+        f"fontfile={FONT_BOLD}:"
+        f"text='{title}':"
+        f"fontcolor={BLACK}:"
+        f"fontsize=76:"
+        f"x=150:"
+        f"y=900"
+    )
+
+    run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c={BLACK}:s={W}x{H}:r={FPS}:d={duration}",
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-pix_fmt",
+            "yuv420p",
+            "-an",
+            str(output),
+        ]
+    )
+
+
+# =========================================================
+# GRAPHIC DISPATCHER
 # =========================================================
 
 def render_graphic(output, shot):
 
-    shot_id = int(shot["id"])
     duration = float(shot["duration"])
 
-    graphic = shot.get("graphic", "")
+    graphic = str(
+        shot.get("graphic", "placeholder")
+    ).lower()
 
     if graphic == "hook":
-        render_hook(output, duration)
+        render_hook(
+            output,
+            duration,
+            shot.get("text", "AUTOMATE.")
+        )
 
     elif graphic == "workflow":
-        render_workflow(output, duration)
+        render_workflow(
+            output,
+            duration
+        )
 
-    elif graphic == "research":
-        render_research(output, duration)
-
-    elif graphic == "create":
-        render_create(output, duration)
-
-    elif graphic == "publish":
-        render_publish(output, duration)
-
-    elif graphic == "automation":
-        render_automation(output, duration)
-
-    elif graphic == "cuts":
-        render_cuts(output, duration)
-
-    elif graphic == "captions":
-        render_captions(output, duration)
+    elif graphic in (
+        "agent",
+        "agent_pipeline",
+        "pipeline",
+    ):
+        render_agent_pipeline(
+            output,
+            duration
+        )
 
     elif graphic == "timeline":
-        render_timeline(output, duration)
+        render_timeline(
+            output,
+            duration
+        )
 
-    elif graphic == "dashboard":
-        render_dashboard(output, duration)
+    elif graphic in (
+        "dashboard",
+        "analytics",
+    ):
+        render_dashboard(
+            output,
+            duration
+        )
 
-    elif graphic == "final":
-        render_final(output, duration)
+    elif graphic == "chapter":
+        render_chapter(
+            output,
+            duration,
+            shot.get("title", "AUTOMATION")
+        )
+
+    elif graphic == "text":
+        render_text_card(
+            output,
+            duration,
+            shot.get("text", "TEXT"),
+            shot.get("background", BLACK),
+            int(shot.get("font_size", 90)),
+        )
 
     else:
-        # Safe fallback
-        render_hook(output, duration)
+        render_placeholder(
+            output,
+            duration,
+            shot.get("id", "?")
+        )
+
+
+# =========================================================
+# PUBLIC FUNCTION USED BY render.py
+# =========================================================
+
+def render_graphic_shot(output, shot):
+    """
+    Main public function.
+
+    render.py should call:
+
+        render_graphic_shot(output, shot)
+
+    This keeps graphics.py reusable for every future reel.
+    """
+
+    render_graphic(
+        output,
+        shot
+    )
