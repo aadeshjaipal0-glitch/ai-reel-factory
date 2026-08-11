@@ -7,9 +7,7 @@
       "id": 1,
       "duration": 1.3,
       "type": "graphic",
-      "graphic": "hook",
-      "title": "AI IS CHANGING",
-      "subtitle": "EVERYTHING"
+      "graphic": "hook"
     },
     {
       "id": 2,
@@ -21,31 +19,25 @@
       "id": 3,
       "duration": 3.5,
       "type": "graphic",
-      "graphic": "workflow",
-      "nodes": [
-        "RESEARCH",
-        "SCRIPT",
-        "CREATE",
-        "PUBLISH"
-      ]
+      "graphic": "workflow"
     },
     {
       "id": 4,
       "duration": 1.4,
       "type": "graphic",
-      "graphic": "search"
+      "graphic": "research"
     },
     {
       "id": 5,
       "duration": 2.0,
       "type": "graphic",
-      "graphic": "dashboard"
+      "graphic": "create"
     },
     {
       "id": 6,
       "duration": 1.4,
       "type": "graphic",
-      "graphic": "automation"
+      "graphic": "publish"
     },
     {
       "id": 7,
@@ -57,13 +49,13 @@
       "id": 8,
       "duration": 1.3,
       "type": "graphic",
-      "graphic": "script"
+      "graphic": "cuts"
     },
     {
       "id": 9,
       "duration": 1.4,
       "type": "graphic",
-      "graphic": "generate"
+      "graphic": "captions"
     },
     {
       "id": 10,
@@ -75,7 +67,7 @@
       "id": 11,
       "duration": 1.4,
       "type": "graphic",
-      "graphic": "publish"
+      "graphic": "automation"
     },
     {
       "id": 12,
@@ -87,9 +79,7 @@
       "id": 13,
       "duration": 1.6,
       "type": "graphic",
-      "graphic": "zero_editing",
-      "title": "ZERO EDITING",
-      "subtitle": "AUTOMATED WORKFLOW"
+      "graphic": "dashboard"
     },
     {
       "id": 14,
