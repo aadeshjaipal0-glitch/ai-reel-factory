@@ -2,7 +2,15 @@ import json
 import subprocess
 from pathlib import Path
 
-ROOT = Path(".")
+from graphics import render_graphic
+
+
+# =========================================================
+# PROJECT CONFIG
+# =========================================================
+
+ROOT = Path(".").resolve()
+
 TIMELINE = ROOT / "timeline" / "reel_01.json"
 OUTPUT = ROOT / "reel_01_test.mp4"
 WORK = ROOT / "render_work"
@@ -11,7 +19,14 @@ W = 1080
 H = 1920
 FPS = 30
 
-WORK.mkdir(exist_ok=True)
+VIDEO_CODEC = "libx264"
+PRESET = "veryfast"
+PIX_FMT = "yuv420p"
+
+AUDIO_CODEC = "aac"
+AUDIO_BITRATE = "192k"
+
+WORK.mkdir(parents=True, exist_ok=True)
 
 
 # =========================================================
@@ -21,20 +36,27 @@ WORK.mkdir(exist_ok=True)
 def run(cmd):
     print("\nRUNNING:")
     print(" ".join(str(x) for x in cmd))
-    subprocess.run(cmd, check=True)
+
+    subprocess.run(
+        [str(x) for x in cmd],
+        check=True
+    )
 
 
 # =========================================================
-# DURATION
+# FFPROBE HELPERS
 # =========================================================
 
 def get_duration(file):
     result = subprocess.run(
         [
             "ffprobe",
-            "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
             str(file),
         ],
         capture_output=True,
@@ -42,7 +64,35 @@ def get_duration(file):
         check=True,
     )
 
-    return float(result.stdout.strip())
+    value = result.stdout.strip()
+
+    if not value:
+        raise RuntimeError(
+            f"Could not determine duration: {file}"
+        )
+
+    return float(value)
+
+
+def has_audio(file):
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "a",
+            "-show_entries",
+            "stream=index",
+            "-of",
+            "csv=p=0",
+            str(file),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    return bool(result.stdout.strip())
 
 
 # =========================================================
@@ -50,8 +100,25 @@ def get_duration(file):
 # =========================================================
 
 def find_presenter_asset(asset_path):
+    """
+    Finds presenter assets even if the actual filename
+    contains spaces.
+
+    Examples:
+
+        gen1.mp4
+        gen 1.mp4
+
+        gen2.mp4
+        gen 2.mp4
+
+        gen3.mp4
+        gen 3.mp4
+    """
+
     requested = ROOT / asset_path
 
+    # Exact path
     if requested.exists():
         return requested
 
@@ -65,7 +132,30 @@ def find_presenter_asset(asset_path):
     }
 
     if filename in alternatives:
-        alternative = requested.parent / alternatives[filename]
+
+        alternative = (
+            requested.parent /
+            alternatives[filename]
+        )
+
+        if alternative.exists():
+            return alternative
+
+    # Reverse lookup:
+    # If JSON says "gen 1.mp4" but actual file is gen1.mp4
+    reverse_alternatives = {
+        "gen 1.mp4": "gen1.mp4",
+        "gen 2.mp4": "gen2.mp4",
+        "gen 3.mp4": "gen3.mp4",
+        "gen 4.mp4": "gen4.mp4",
+    }
+
+    if filename in reverse_alternatives:
+
+        alternative = (
+            requested.parent /
+            reverse_alternatives[filename]
+        )
 
         if alternative.exists():
             return alternative
@@ -74,183 +164,66 @@ def find_presenter_asset(asset_path):
 
 
 # =========================================================
-# GENERIC BLACK / PLACEHOLDER
-# =========================================================
-
-def render_placeholder(output, duration, text):
-    run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f", "lavfi",
-            "-i",
-            f"color=c=black:s={W}x{H}:r={FPS}:d={duration}",
-            "-vf",
-            (
-                "drawtext="
-                "fontfile=/usr/share/fonts/truetype/dejavu/"
-                "DejaVuSans-Bold.ttf:"
-                f"text='{text}':"
-                "fontcolor=white:"
-                "fontsize=70:"
-                "x=(w-text_w)/2:"
-                "y=(h-text_h)/2"
-            ),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output),
-        ]
-    )
-
-
-# =========================================================
-# RADIAL BACKGROUND
-# =========================================================
-
-def render_radial_background(output, duration):
-    run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f", "lavfi",
-            "-i",
-            f"color=c=0x111111:s={W}x{H}:r={FPS}:d={duration}",
-            "-vf",
-            (
-                "vignette="
-                "angle=PI/5:"
-                "mode=forward"
-            ),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output),
-        ]
-    )
-
-
-# =========================================================
-# TEXT CARD
-# =========================================================
-
-def render_text_card(output, duration, text, background="black"):
-    font = (
-        "/usr/share/fonts/truetype/dejavu/"
-        "DejaVuSans-Bold.ttf"
-    )
-
-    if background == "cream":
-        bg = "0xF4EFE6"
-        fg = "0x111111"
-    else:
-        bg = "0x080808"
-        fg = "white"
-
-    safe_text = text.replace("'", r"\'")
-
-    run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f", "lavfi",
-            "-i",
-            f"color=c={bg}:s={W}x{H}:r={FPS}:d={duration}",
-            "-vf",
-            (
-                "drawtext="
-                f"fontfile={font}:"
-                f"text='{safe_text}':"
-                f"fontcolor={fg}:"
-                "fontsize=90:"
-                "x=(w-text_w)/2:"
-                "y=(h-text_h)/2:"
-                "box=0"
-            ),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output),
-        ]
-    )
-
-
-# =========================================================
-# ICON CARD
-# =========================================================
-
-def render_icon_card(output, duration, icon_name):
-    font = (
-        "/usr/share/fonts/truetype/dejavu/"
-        "DejaVuSans-Bold.ttf"
-    )
-
-    safe_icon = icon_name.replace("'", r"\'")
-
-    run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f", "lavfi",
-            "-i",
-            f"color=c=0x101010:s={W}x{H}:r={FPS}:d={duration}",
-            "-vf",
-            (
-                "drawbox="
-                "x=190:y=600:w=700:h=700:"
-                "color=0x1C1C1C:"
-                "t=fill,"
-                "drawtext="
-                f"fontfile={font}:"
-                f"text='{safe_icon}':"
-                "fontcolor=white:"
-                "fontsize=120:"
-                "x=(w-text_w)/2:"
-                "y=(h-text_h)/2"
-            ),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output),
-        ]
-    )
-
-
-# =========================================================
-# PRESENTER
+# NORMALIZE PRESENTER VIDEO
 # =========================================================
 
 def render_presenter(output, source, duration):
+    """
+    Converts presenter footage into the standard project format:
+
+    1080x1920
+    30 FPS
+    H.264
+    AAC
+    yuv420p
+
+    Original presenter audio is preserved.
+    """
+
     run(
         [
             "ffmpeg",
             "-y",
-            "-i", str(source),
 
-            "-t", str(duration),
+            "-i",
+            str(source),
+
+            "-t",
+            str(duration),
 
             "-vf",
             (
-                "scale="
-                f"{W}:{H}:"
+                f"scale={W}:{H}:"
                 "force_original_aspect_ratio=increase,"
                 f"crop={W}:{H},"
                 "setsar=1"
             ),
 
-            "-r", str(FPS),
+            "-r",
+            str(FPS),
 
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
+            "-c:v",
+            VIDEO_CODEC,
 
-            # KEEP ORIGINAL AUDIO
-            "-c:a", "aac",
-            "-b:a", "192k",
+            "-preset",
+            PRESET,
+
+            "-pix_fmt",
+            PIX_FMT,
+
+            "-c:a",
+            AUDIO_CODEC,
+
+            "-b:a",
+            AUDIO_BITRATE,
+
+            "-ar",
+            "48000",
+
+            "-ac",
+            "2",
+
+            "-shortest",
 
             str(output),
         ]
@@ -258,61 +231,205 @@ def render_presenter(output, source, duration):
 
 
 # =========================================================
-# GRAPHIC DISPATCHER
+# ADD SILENT AUDIO TO GRAPHIC
 # =========================================================
 
-def render_graphic(output, shot):
+def add_silent_audio(output, video_file, duration):
+    """
+    Graphics generated by graphics.py normally have video only.
+
+    This function adds silent stereo AAC audio so every shot
+    has identical video/audio stream structure.
+
+    This makes concat much safer.
+    """
+
+    run(
+        [
+            "ffmpeg",
+            "-y",
+
+            "-i",
+            str(video_file),
+
+            "-f",
+            "lavfi",
+
+            "-i",
+            "anullsrc=channel_layout=stereo:sample_rate=48000",
+
+            "-t",
+            str(duration),
+
+            "-map",
+            "0:v:0",
+
+            "-map",
+            "1:a:0",
+
+            "-c:v",
+            "libx264",
+
+            "-preset",
+            PRESET,
+
+            "-pix_fmt",
+            PIX_FMT,
+
+            "-c:a",
+            AUDIO_CODEC,
+
+            "-b:a",
+            AUDIO_BITRATE,
+
+            "-ar",
+            "48000",
+
+            "-ac",
+            "2",
+
+            "-shortest",
+
+            str(output),
+        ]
+    )
+
+
+# =========================================================
+# PLACEHOLDER
+# =========================================================
+
+def render_placeholder(output, duration, text):
+    """
+    Emergency fallback.
+
+    This prevents the whole render from crashing when a
+    graphic asset is not available yet.
+    """
+
+    safe_text = (
+        str(text)
+        .replace("\\", "")
+        .replace("'", "\\'")
+        .replace(":", "\\:")
+    )
+
+    temporary = WORK / (
+        f"_placeholder_{output.stem}.mp4"
+    )
+
+    run(
+        [
+            "ffmpeg",
+            "-y",
+
+            "-f",
+            "lavfi",
+
+            "-i",
+            (
+                f"color=c=black:"
+                f"s={W}x{H}:"
+                f"r={FPS}:"
+                f"d={duration}"
+            ),
+
+            "-vf",
+            (
+                "drawtext="
+                "fontfile=/usr/share/fonts/"
+                "truetype/dejavu/"
+                "DejaVuSans-Bold.ttf:"
+                f"text='{safe_text}':"
+                "fontcolor=white:"
+                "fontsize=70:"
+                "x=(w-text_w)/2:"
+                "y=(h-text_h)/2"
+            ),
+
+            "-c:v",
+            VIDEO_CODEC,
+
+            "-preset",
+            PRESET,
+
+            "-pix_fmt",
+            PIX_FMT,
+
+            "-an",
+
+            str(temporary),
+        ]
+    )
+
+    add_silent_audio(
+        output,
+        temporary,
+        duration
+    )
+
+    if temporary.exists():
+        temporary.unlink()
+
+
+# =========================================================
+# NORMALIZE GRAPHIC
+# =========================================================
+
+def render_graphic_shot(output, shot):
+    """
+    Calls graphics.py and then adds silent audio.
+    """
+
     duration = float(shot["duration"])
 
-    graphic = shot.get("graphic", "placeholder")
+    temporary = WORK / (
+        f"_graphic_{shot['id']:02d}.mp4"
+    )
 
-    if graphic == "radial":
-        render_radial_background(
+    try:
+
+        render_graphic(
+            temporary,
+            shot
+        )
+
+        if not temporary.exists():
+            raise RuntimeError(
+                f"graphics.py did not create: {temporary}"
+            )
+
+        add_silent_audio(
             output,
+            temporary,
             duration
         )
 
-    elif graphic == "text":
-        render_text_card(
-            output,
-            duration,
-            shot.get("text", "TEXT"),
-            shot.get("background", "black")
+        temporary.unlink()
+
+    except Exception as error:
+
+        print()
+        print(
+            f"WARNING: Graphic Shot "
+            f"{shot['id']} failed."
         )
 
-    elif graphic == "icon":
-        render_icon_card(
-            output,
-            duration,
-            shot.get("icon", "AI")
+        print(
+            f"Reason: {error}"
         )
 
-    elif graphic == "workflow":
-        render_icon_card(
-            output,
-            duration,
-            "WORKFLOW"
+        print(
+            "Using emergency placeholder."
         )
 
-    elif graphic == "dashboard":
-        render_icon_card(
-            output,
-            duration,
-            "ANALYTICS"
-        )
+        if temporary.exists():
+            temporary.unlink()
 
-    elif graphic == "timeline":
-        render_icon_card(
-            output,
-            duration,
-            "TIMELINE"
-        )
-
-    else:
         render_placeholder(
             output,
             duration,
-            f"SHOT {shot['id']}"
+            f"SHOT {shot['id']} — GRAPHIC"
         )
 
 
@@ -321,23 +438,60 @@ def render_graphic(output, shot):
 # =========================================================
 
 if not TIMELINE.exists():
+
     raise FileNotFoundError(
         f"Timeline not found: {TIMELINE}"
     )
 
-with open(TIMELINE, "r", encoding="utf-8") as f:
+
+with open(
+    TIMELINE,
+    "r",
+    encoding="utf-8"
+) as f:
+
     timeline = json.load(f)
 
-shots = timeline["shots"]
 
-print(f"\nLoaded {len(shots)} shots")
+shots = timeline.get("shots", [])
+
+if not shots:
+
+    raise RuntimeError(
+        "Timeline contains no shots."
+    )
+
+
+print()
+print("=" * 70)
+print("REEL FACTORY")
+print("=" * 70)
+
+print(
+    f"Project: {timeline.get('project', 'unknown')}"
+)
+
+print(
+    f"Resolution: {W}x{H}"
+)
+
+print(
+    f"FPS: {FPS}"
+)
+
+print(
+    f"Shots: {len(shots)}"
+)
+
+print("=" * 70)
 
 
 # =========================================================
-# RENDER SHOTS
+# RENDER ALL SHOTS
 # =========================================================
 
 rendered_shots = []
+
 
 for shot in shots:
 
@@ -345,15 +499,22 @@ for shot in shots:
     duration = float(shot["duration"])
     shot_type = shot["type"]
 
-    output = WORK / f"shot_{shot_id:02d}.mp4"
+    output = (
+        WORK /
+        f"shot_{shot_id:02d}.mp4"
+    )
 
-    print("\n" + "=" * 70)
+    print()
+    print("=" * 70)
+
     print(
         f"SHOT {shot_id} | "
         f"TYPE={shot_type} | "
         f"DURATION={duration}s"
     )
+
     print("=" * 70)
+
 
     # -----------------------------------------------------
     # PRESENTER
@@ -364,34 +525,48 @@ for shot in shots:
         asset_path = shot.get("asset")
 
         if not asset_path:
-            print("WARNING: No presenter asset specified.")
+
+            print(
+                "WARNING: No presenter asset specified."
+            )
 
             render_placeholder(
                 output,
                 duration,
-                f"SHOT {shot_id} — PRESENTER MISSING"
+                f"SHOT {shot_id} — PRESENTER"
             )
 
         else:
 
-            source = find_presenter_asset(asset_path)
+            source = find_presenter_asset(
+                asset_path
+            )
 
             if source is None:
 
                 print(
-                    f"WARNING: Presenter asset not found: "
-                    f"{asset_path}"
+                    "WARNING: Presenter asset not found:"
+                )
+
+                print(
+                    f"  Requested: {asset_path}"
+                )
+
+                print(
+                    "Creating fallback placeholder."
                 )
 
                 render_placeholder(
                     output,
                     duration,
-                    f"SHOT {shot_id} — ASSET MISSING"
+                    f"SHOT {shot_id} — PRESENTER"
                 )
 
             else:
 
-                print(f"Presenter: {source}")
+                print(
+                    f"Presenter asset: {source}"
+                )
 
                 render_presenter(
                     output,
@@ -399,59 +574,61 @@ for shot in shots:
                     duration
                 )
 
+
     # -----------------------------------------------------
-    # GRAPHICS
+    # GRAPHIC
     # -----------------------------------------------------
 
     else:
 
-        render_graphic(
+        render_graphic_shot(
             output,
             shot
         )
+
+
+    # -----------------------------------------------------
+    # VERIFY SHOT
+    # -----------------------------------------------------
+
+    if not output.exists():
+
+        raise RuntimeError(
+            f"Shot was not created: {output}"
+        )
+
+    if output.stat().st_size == 0:
+
+        raise RuntimeError(
+            f"Shot is empty: {output}"
+        )
+
+    shot_duration = get_duration(
+        output
+    )
+
+    print(
+        f"Rendered successfully: "
+        f"{shot_duration:.2f}s"
+    )
+
+    print(
+        f"Audio stream: "
+        f"{'YES' if has_audio(output) else 'NO'}"
+    )
 
     rendered_shots.append(output)
 
 
 # =========================================================
-# VERIFY SHOTS
+# CREATE CONCAT FILE
 # =========================================================
 
-print("\n" + "=" * 70)
-print("VERIFYING RENDERED SHOTS")
-print("=" * 70)
+concat_file = (
+    WORK /
+    "concat.txt"
+)
 
-valid_shots = []
-
-for clip in rendered_shots:
-
-    if clip.exists() and clip.stat().st_size > 0:
-
-        print(
-            f"OK  {clip} "
-            f"({clip.stat().st_size / 1024:.1f} KB)"
-        )
-
-        valid_shots.append(clip)
-
-    else:
-
-        print(
-            f"ERROR: Missing {clip}"
-        )
-
-
-if not valid_shots:
-    raise RuntimeError(
-        "No valid rendered shots."
-    )
-
-
-# =========================================================
-# CONCAT FILE
-# =========================================================
-
-concat_file = WORK / "concat.txt"
 
 with open(
     concat_file,
@@ -459,42 +636,65 @@ with open(
     encoding="utf-8"
 ) as f:
 
-    for clip in valid_shots:
+    for clip in rendered_shots:
 
         f.write(
             f"file '{clip.resolve()}'\n"
         )
 
-print(
-    f"\nConcat file created: "
-    f"{concat_file}"
-)
+
+print()
+print("=" * 70)
+print("CONCAT FILE CREATED")
+print("=" * 70)
+
+print(concat_file)
 
 
 # =========================================================
 # FINAL ASSEMBLY
 # =========================================================
 
-print("\n" + "=" * 70)
+print()
+print("=" * 70)
 print("ASSEMBLING FINAL REEL")
 print("=" * 70)
+
 
 run(
     [
         "ffmpeg",
         "-y",
 
-        "-f", "concat",
-        "-safe", "0",
-        "-i", str(concat_file),
+        "-f",
+        "concat",
 
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-pix_fmt", "yuv420p",
+        "-safe",
+        "0",
 
-        # AAC output
-        "-c:a", "aac",
-        "-b:a", "192k",
+        "-i",
+        str(concat_file),
+
+        "-c:v",
+        VIDEO_CODEC,
+
+        "-preset",
+        PRESET,
+
+        "-pix_fmt",
+        PIX_FMT,
+
+        "-c:a",
+        AUDIO_CODEC,
+
+        "-b:a",
+        AUDIO_BITRATE,
+
+        "-ar",
+        "48000",
+
+        "-ac",
+        "2",
 
         str(OUTPUT),
     ]
@@ -506,20 +706,48 @@ run(
 # =========================================================
 
 if not OUTPUT.exists():
+
     raise RuntimeError(
         "Final reel was not created."
     )
 
-duration = get_duration(OUTPUT)
 
-print("\n")
+if OUTPUT.stat().st_size == 0:
+
+    raise RuntimeError(
+        "Final reel exists but is empty."
+    )
+
+
+final_duration = get_duration(
+    OUTPUT
+)
+
+
+print()
 print("=" * 70)
 print("REEL FACTORY TEST RENDER COMPLETE")
 print("=" * 70)
-print(f"OUTPUT: {OUTPUT}")
+
+print(
+    f"OUTPUT: {OUTPUT}"
+)
+
 print(
     f"SIZE: "
     f"{OUTPUT.stat().st_size / 1024:.1f} KB"
 )
-print(f"DURATION: {duration:.2f}s")
+
+print(
+    f"DURATION: "
+    f"{final_duration:.2f}s"
+)
+
+print(
+    f"AUDIO: "
+    f"{'YES' if has_audio(OUTPUT) else 'NO'}"
+)
+
+print("=" * 70)
+print("SUCCESS")
 print("=" * 70)
