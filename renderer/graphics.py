@@ -5,349 +5,449 @@ W = 1080
 H = 1920
 FPS = 30
 
-FONT_BOLD = (
-    "/usr/share/fonts/truetype/dejavu/"
-    "DejaVuSans-Bold.ttf"
-)
-
-FONT_REGULAR = (
-    "/usr/share/fonts/truetype/dejavu/"
-    "DejaVuSans.ttf"
-)
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 
 def run(cmd):
-    print("GRAPHIC:", " ".join(map(str, cmd)))
+    print("\nGRAPHICS:", " ".join(str(x) for x in cmd))
     subprocess.run(cmd, check=True)
 
 
-def render_graphic(output, shot):
-    graphic = shot.get("graphic", "hook")
-    duration = float(shot["duration"])
+def esc(text):
+    return (
+        str(text)
+        .replace("\\", "\\\\")
+        .replace(":", "\\:")
+        .replace("'", "\\'")
+        .replace(",", "\\,")
+    )
 
-    if graphic == "hook":
-        return hook(output, duration, shot)
 
-    if graphic == "workflow":
-        return workflow(output, duration, shot)
+def base_input(duration, background="0x080808"):
+    return [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        f"color=c={background}:s={W}x{H}:r={FPS}:d={duration}",
+    ]
 
-    if graphic == "search":
-        return search(output, duration)
 
-    if graphic == "dashboard":
-        return dashboard(output, duration)
-
-    if graphic == "automation":
-        return automation(output, duration)
-
-    if graphic == "script":
-        return script_card(output, duration)
-
-    if graphic == "generate":
-        return generate(output, duration)
-
-    if graphic == "timeline":
-        return timeline(output, duration)
-
-    if graphic == "publish":
-        return publish(output, duration)
-
-    if graphic == "zero_editing":
-        return zero_editing(output, duration, shot)
-
-    return hook(output, duration, shot)
+def encode(output):
+    return [
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-pix_fmt", "yuv420p",
+        "-an",
+        str(output),
+    ]
 
 
 # =========================================================
-# HOOK
+# 1. TITLE / HOOK
 # =========================================================
 
-def hook(output, duration, shot):
-    title = shot.get("title", "AI IS CHANGING")
-    subtitle = shot.get("subtitle", "EVERYTHING")
+def render_hook(output, duration):
+    text = esc("AI IS CHANGING EVERYTHING")
 
     vf = (
-        f"drawbox=x=80:y=560:w=920:h=800:"
-        f"color=0x171717@1:t=fill,"
         f"drawtext=fontfile={FONT_BOLD}:"
-        f"text='{title}':"
-        f"fontcolor=white:"
-        f"fontsize=88:"
-        f"x=(w-text_w)/2:"
-        f"y=760,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        f"text='{subtitle}':"
-        f"fontcolor=white:"
-        f"fontsize=112:"
-        f"x=(w-text_w)/2:"
-        f"y=900"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# WORKFLOW
-# =========================================================
-
-def workflow(output, duration, shot):
-    nodes = shot.get(
-        "nodes",
-        ["RESEARCH", "SCRIPT", "CREATE", "PUBLISH"]
-    )
-
-    filters = []
-
-    y = 500
-
-    for i, node in enumerate(nodes):
-
-        x = 90 + i * 245
-
-        filters.append(
-            f"drawbox="
-            f"x={x}:y={y}:"
-            f"w=205:h=180:"
-            f"color=0x202020@1:"
-            f"t=fill"
-        )
-
-        filters.append(
-            f"drawtext="
-            f"fontfile={FONT_BOLD}:"
-            f"text='{node}':"
-            f"fontcolor=white:"
-            f"fontsize=30:"
-            f"x={x}+102-text_w/2:"
-            f"y={y}+78"
-        )
-
-        if i < len(nodes) - 1:
-            filters.append(
-                f"drawtext="
-                f"fontfile={FONT_BOLD}:"
-                f"text='→':"
-                f"fontcolor=white:"
-                f"fontsize=50:"
-                f"x={x+210}:"
-                f"y={y+62}"
-            )
-
-    render_base(
-        output,
-        duration,
-        ",".join(filters)
-    )
-
-
-# =========================================================
-# SEARCH
-# =========================================================
-
-def search(output, duration):
-    vf = (
-        "drawbox=x=100:y=650:w=880:h=170:"
-        "color=0x202020:t=fill,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='Search anything...':"
-        "fontcolor=0xAAAAAA:"
-        "fontsize=48:"
-        "x=155:y=710,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='⌕':"
+        f"text='{text}':"
         "fontcolor=white:"
-        "fontsize=65:"
-        "x=900:y=695"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# DASHBOARD
-# =========================================================
-
-def dashboard(output, duration):
-    vf = (
-        "drawbox=x=100:y=430:w=880:h=900:"
-        "color=0x171717:t=fill,"
-        "drawtext="
-        f"fontfile={FONT_BOLD}:"
-        "text='AI DASHBOARD':"
-        "fontcolor=white:"
-        "fontsize=55:"
-        "x=150:y=500,"
-        "drawbox=x=160:y=650:w=220:h=450:"
-        "color=0x303030:t=fill,"
-        "drawbox=x=430:y=750:w=220:h=350:"
-        "color=0x303030:t=fill,"
-        "drawbox=x=700:y=590:w=180:h=510:"
-        "color=0x303030:t=fill"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# AUTOMATION
-# =========================================================
-
-def automation(output, duration):
-    vf = (
-        "drawbox=x=150:y=650:w=780:h=180:"
-        "color=0x202020:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='AUTOMATION':"
-        "fontcolor=white:"
-        "fontsize=65:"
+        "fontsize=82:"
         "x=(w-text_w)/2:"
-        "y=710,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='ONE INPUT → MANY OUTPUTS':"
-        "fontcolor=0xAAAAAA:"
-        "fontsize=35:"
-        "x=(w-text_w)/2:"
-        "y=860"
+        "y=(h-text_h)/2:"
+        "alpha='if(lt(t,0.25),t/0.25,1)':"
+        "enable='between(t,0,1.3)'"
     )
 
-    render_base(output, duration, vf)
+    run(
+        base_input(duration, "0x050505")
+        + ["-vf", vf]
+        + encode(output)
+    )
 
 
 # =========================================================
-# SCRIPT
+# 2. WORKFLOW GRAPHIC
 # =========================================================
 
-def script_card(output, duration):
+def render_workflow(output, duration):
     vf = (
-        "drawbox=x=130:y=480:w=820:h=1000:"
-        "color=0x171717:t=fill,"
+        "drawbox=x=90:y=500:w=900:h=820:"
+        "color=0x111111:t=fill,"
+        "drawbox=x=130:y=560:w=220:h=180:"
+        "color=0x1C1C1C:t=fill,"
+        "drawbox=x=430:y=560:w=220:h=180:"
+        "color=0x1C1C1C:t=fill,"
+        "drawbox=x=730:y=560:w=220:h=180:"
+        "color=0x1C1C1C:t=fill,"
         f"drawtext=fontfile={FONT_BOLD}:"
-        "text='SCRIPT':"
+        "text='RESEARCH':"
         "fontcolor=white:"
-        "fontsize=65:"
-        "x=190:y=560,"
-        f"drawtext=fontfile={FONT_REGULAR}:"
-        "text='Write → Refine → Approve':"
-        "fontcolor=0xAAAAAA:"
         "fontsize=42:"
-        "x=190:y=680"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# GENERATE
-# =========================================================
-
-def generate(output, duration):
-    vf = (
-        "drawbox=x=150:y=620:w=780:h=300:"
-        "color=0x202020:t=fill,"
+        "x=155:y=625,"
         f"drawtext=fontfile={FONT_BOLD}:"
-        "text='GENERATE':"
+        "text='CREATE':"
         "fontcolor=white:"
-        "fontsize=75:"
-        "x=(w-text_w)/2:"
-        "y=720"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# TIMELINE
-# =========================================================
-
-def timeline(output, duration):
-    vf = (
-        "drawbox=x=100:y=700:w=880:h=20:"
-        "color=0x404040:t=fill,"
-        "drawbox=x=100:y=700:w=600:h=20:"
-        "color=white:t=fill,"
-        "drawbox=x=170:y=580:w=150:h=70:"
-        "color=0x202020:t=fill,"
-        "drawbox=x=360:y=580:w=210:h=70:"
-        "color=0x202020:t=fill,"
-        "drawbox=x=610:y=580:w=180:h=70:"
-        "color=0x202020:t=fill,"
-        f"drawtext=fontfile={FONT_BOLD}:"
-        "text='TIMELINE':"
-        "fontcolor=white:"
-        "fontsize=65:"
-        "x=(w-text_w)/2:"
-        "y=450"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# PUBLISH
-# =========================================================
-
-def publish(output, duration):
-    vf = (
-        "drawbox=x=180:y=650:w=720:h=250:"
-        "color=0x202020:t=fill,"
+        "fontsize=42:"
+        "x=475:y=625,"
         f"drawtext=fontfile={FONT_BOLD}:"
         "text='PUBLISH':"
         "fontcolor=white:"
-        "fontsize=80:"
-        "x=(w-text_w)/2:"
-        "y=735"
-    )
-
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# ZERO EDITING
-# =========================================================
-
-def zero_editing(output, duration, shot):
-    title = shot.get("title", "ZERO EDITING")
-    subtitle = shot.get(
-        "subtitle",
-        "AUTOMATED WORKFLOW"
-    )
-
-    vf = (
-        f"drawtext=fontfile={FONT_BOLD}:"
-        f"text='{title}':"
-        "fontcolor=white:"
-        "fontsize=105:"
-        "x=(w-text_w)/2:"
-        "y=720,"
+        "fontsize=42:"
+        "x=765:y=625,"
         f"drawtext=fontfile={FONT_REGULAR}:"
-        f"text='{subtitle}':"
+        "text='AI WORKFLOW':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=(w-text_w)/2:"
+        "y=430,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='AUTOMATED':"
+        "fontcolor=white:"
+        "fontsize=70:"
+        "x=(w-text_w)/2:"
+        "y=1050"
+    )
+
+    run(
+        base_input(duration, "0x080808")
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 3. RESEARCH CARD
+# =========================================================
+
+def render_research(output, duration):
+    vf = (
+        "drawbox=x=150:y=550:w=780:h=650:"
+        "color=0x111111:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='01':"
+        "fontcolor=0x777777:"
+        "fontsize=42:"
+        "x=200:y=620,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='RESEARCH':"
+        "fontcolor=white:"
+        "fontsize=78:"
+        "x=200:y=730,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='AI finds the information':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=200:y=850,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='you need.':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=200:y=910"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 4. CREATE CARD
+# =========================================================
+
+def render_create(output, duration):
+    vf = (
+        "drawbox=x=150:y=550:w=780:h=650:"
+        "color=0x111111:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='02':"
+        "fontcolor=0x777777:"
+        "fontsize=42:"
+        "x=200:y=620,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='CREATE':"
+        "fontcolor=white:"
+        "fontsize=78:"
+        "x=200:y=730,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='Scripts, visuals,':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=200:y=850,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='and content generated.':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=200:y=910"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 5. PUBLISH CARD
+# =========================================================
+
+def render_publish(output, duration):
+    vf = (
+        "drawbox=x=150:y=550:w=780:h=650:"
+        "color=0x111111:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='03':"
+        "fontcolor=0x777777:"
+        "fontsize=42:"
+        "x=200:y=620,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='PUBLISH':"
+        "fontcolor=white:"
+        "fontsize=78:"
+        "x=200:y=730,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='Ready for the audience.':"
+        "fontcolor=0xBBBBBB:"
+        "fontsize=38:"
+        "x=200:y=870"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 6. AUTOMATION CARD
+# =========================================================
+
+def render_automation(output, duration):
+    vf = (
+        "drawbox=x=120:y=520:w=840:h=820:"
+        "color=0x101010:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='AUTOMATION':"
+        "fontcolor=white:"
+        "fontsize=76:"
+        "x=(w-text_w)/2:"
+        "y=650,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='ONE WORKFLOW':"
         "fontcolor=0xAAAAAA:"
         "fontsize=42:"
         "x=(w-text_w)/2:"
-        "y=860"
+        "y=800,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='MANY TASKS':"
+        "fontcolor=white:"
+        "fontsize=62:"
+        "x=(w-text_w)/2:"
+        "y=920"
     )
 
-    render_base(output, duration, vf)
-
-
-# =========================================================
-# BASE RENDER
-# =========================================================
-
-def render_base(output, duration, vf):
     run(
-        [
-            "ffmpeg",
-            "-y",
-            "-f", "lavfi",
-            "-i",
-            f"color=c=0x080808:s={W}x{H}:r={FPS}:d={duration}",
-            "-vf",
-            vf,
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output)
-        ]
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
     )
+
+
+# =========================================================
+# 7. CUTS
+# =========================================================
+
+def render_cuts(output, duration):
+    vf = (
+        "drawbox=x=180:y=600:w=720:h=500:"
+        "color=0x111111:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='CUTS':"
+        "fontcolor=white:"
+        "fontsize=100:"
+        "x=(w-text_w)/2:"
+        "y=760"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 8. CAPTIONS
+# =========================================================
+
+def render_captions(output, duration):
+    vf = (
+        "drawbox=x=120:y=560:w=840:h=650:"
+        "color=0x111111:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='CAPTIONS':"
+        "fontcolor=white:"
+        "fontsize=78:"
+        "x=(w-text_w)/2:"
+        "y=720,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='GENERATED AUTOMATICALLY':"
+        "fontcolor=0xAAAAAA:"
+        "fontsize=36:"
+        "x=(w-text_w)/2:"
+        "y=850"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 9. FULL AUTOMATION / TIMELINE
+# =========================================================
+
+def render_timeline(output, duration):
+    vf = (
+        "drawbox=x=100:y=500:w=880:h=850:"
+        "color=0x101010:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='CUTS + CAPTIONS + SCORES':"
+        "fontcolor=white:"
+        "fontsize=54:"
+        "x=(w-text_w)/2:"
+        "y=670,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='AUTOMATICALLY':"
+        "fontcolor=white:"
+        "fontsize=76:"
+        "x=(w-text_w)/2:"
+        "y=820,"
+        f"drawtext=fontfile={FONT_REGULAR}:"
+        "text='FROM ONE WORKFLOW':"
+        "fontcolor=0xAAAAAA:"
+        "fontsize=38:"
+        "x=(w-text_w)/2:"
+        "y=960"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 10. DASHBOARD
+# =========================================================
+
+def render_dashboard(output, duration):
+    vf = (
+        "drawbox=x=120:y=500:w=840:h=850:"
+        "color=0x101010:t=fill,"
+        "drawbox=x=190:y=850:w=170:h=250:"
+        "color=0x222222:t=fill,"
+        "drawbox=x=410:y=700:w=170:h=400:"
+        "color=0x222222:t=fill,"
+        "drawbox=x=630:y=590:w=170:h=510:"
+        "color=0x222222:t=fill,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='OUTPUT':"
+        "fontcolor=white:"
+        "fontsize=70:"
+        "x=(w-text_w)/2:"
+        "y=570"
+    )
+
+    run(
+        base_input(duration)
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# 11. FINAL PUNCH
+# =========================================================
+
+def render_final(output, duration):
+    vf = (
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='AUTOMATE MORE.':"
+        "fontcolor=white:"
+        "fontsize=82:"
+        "x=(w-text_w)/2:"
+        "y=780,"
+        f"drawtext=fontfile={FONT_BOLD}:"
+        "text='CREATE MORE.':"
+        "fontcolor=white:"
+        "fontsize=82:"
+        "x=(w-text_w)/2:"
+        "y=900"
+    )
+
+    run(
+        base_input(duration, "0x050505")
+        + ["-vf", vf]
+        + encode(output)
+    )
+
+
+# =========================================================
+# MAIN DISPATCHER
+# =========================================================
+
+def render_graphic(output, shot):
+
+    shot_id = int(shot["id"])
+    duration = float(shot["duration"])
+
+    graphic = shot.get("graphic", "")
+
+    if graphic == "hook":
+        render_hook(output, duration)
+
+    elif graphic == "workflow":
+        render_workflow(output, duration)
+
+    elif graphic == "research":
+        render_research(output, duration)
+
+    elif graphic == "create":
+        render_create(output, duration)
+
+    elif graphic == "publish":
+        render_publish(output, duration)
+
+    elif graphic == "automation":
+        render_automation(output, duration)
+
+    elif graphic == "cuts":
+        render_cuts(output, duration)
+
+    elif graphic == "captions":
+        render_captions(output, duration)
+
+    elif graphic == "timeline":
+        render_timeline(output, duration)
+
+    elif graphic == "dashboard":
+        render_dashboard(output, duration)
+
+    elif graphic == "final":
+        render_final(output, duration)
+
+    else:
+        # Safe fallback
+        render_hook(output, duration)
