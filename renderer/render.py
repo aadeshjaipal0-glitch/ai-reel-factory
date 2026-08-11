@@ -141,24 +141,25 @@ def find_presenter_asset(asset_path):
         if alternative.exists():
             return alternative
 
-    # Reverse lookup:
-    # If JSON says "gen 1.mp4" but actual file is gen1.mp4
-    reverse_alternatives = {
-        "gen 1.mp4": "gen1.mp4",
-        "gen 2.mp4": "gen2.mp4",
-        "gen 3.mp4": "gen3.mp4",
-        "gen 4.mp4": "gen4.mp4",
-    }
+    # Reverse lookup plus tolerant filename matching.
+    # This handles names such as:
+    #   gen2.mp4
+    #   gen 2.mp4
+    #   gen 2 .mp4
+    import re
 
-    if filename in reverse_alternatives:
+    wanted = re.sub(r"[^a-z0-9]", "", filename.lower())
 
-        alternative = (
-            requested.parent /
-            reverse_alternatives[filename]
-        )
+    if requested.parent.exists():
+        for candidate in requested.parent.glob("*.mp4"):
+            normalized = re.sub(
+                r"[^a-z0-9]",
+                "",
+                candidate.name.lower()
+            )
 
-        if alternative.exists():
-            return alternative
+            if normalized == wanted:
+                return candidate
 
     return None
 
